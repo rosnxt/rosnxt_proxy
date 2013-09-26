@@ -8,9 +8,12 @@ From [ROS.org](http://www.ros.org/wiki/): ROS (Robot Operating System) provides 
 rosnxt_proxy
 ============
 
-rosnxt_proxy implements the communication between the computer and the NXT brick, and it exposes the functionality of the NXT via ROS topics, services and params.
+rosnxt_proxy implements the communication between the computer and the NXT brick (running the [rosnxt_lejos_firmware](https://github.com/rosnxt/rosnxt_lejos_firmware)), and it exposes the functionality of the NXT via ROS topics, services and params.
 
-On startup, rosnxt_proxy configures the ports of the NXT, load the required drivers, and processes the data.
+On startup, rosnxt_proxy configures the ports of the NXT, load the required drivers, and processes the data send by the brick.
+
+Parameters
+----------
 
 Configuration is done via ROS params:
 
