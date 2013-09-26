@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+	<node name="nxt_delta" pkg="rosnxt_proxy" type="proxy">
+		<param name="brick_name" value="Delta" />
+		<param name="port/a/type" value="motor" />
+		<param name="port/a/slot/0/pollPeriod" value="100" />
+		<param name="port/s1/type" value="ultrasonic" />
+		<param name="port/s1/slot/0/pollPeriod" value="100" />
+		<param name="port/s2/type" value="light" />
+		<param name="port/s2/slot/0/pollPeriod" value="100" />
+	</node>
+</launch>

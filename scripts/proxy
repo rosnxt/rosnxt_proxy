@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p $(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/lib/native
+cp $(rospack find rosnxt_proxy)/lib/libjlibnxt.so $(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/lib/native/
+$(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/bin/rosnxt_proxy com.github.rosnxt.Proxy $@

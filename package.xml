@@ -1,0 +1,24 @@
+<package>
+  <name>rosnxt_proxy</name>
+  <version>0.0.0</version>
+  <description>
+    ROS proxy for talking to an NXT brick with the <a href="http://www.ros.org/wiki/rosnxt_lejos_firmware">ROSNXT-leJOS</a> firmware
+  </description>
+  <maintainer email="federico.ferri.it@gmail.com">Federico Ferri</maintainer>
+  <license>BSD</license>
+
+  <url type="website">http://www.ros.org/wiki/rosnxt_proxy</url>
+  <url type="repository">https://github.com/rosnxt/rosnxt_proxy</url>
+  <url type="bugtracker">https://github.com/rosnxt/rosnxt_proxy/issues</url>
+  <author email="federico.ferri.it@gmail.com">Federico Ferri</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>message_generation</build_depend>
+  <build_depend>rosjava_core</build_depend>
+  <build_depend>rosjava_messages</build_depend>
+
+  <run_depend>message_runtime</run_depend>
+  <run_depend>rosjava_core</run_depend>
+  <run_depend>rosjava_messages</run_depend>
+</package>
