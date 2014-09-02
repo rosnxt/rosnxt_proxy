@@ -97,11 +97,28 @@ public class Proxy implements NodeMain {
 			node.getLog().info("Brick name is: " + brickName);
 		}
 		
-		node.getLog().info("Creating USB comm...");
+		String connectionMethod = params.getString("~connection_method");
+		if(connectionMethod == null || !(connectionMethod.equals("bt") || connectionMethod.equals("usb"))) {
+			node.getLog().error("Connection must be set to either bt or usb (connection_method)");
+			return;
+		} else {
+			node.getLog().info("Connection method: " + connectionMethod);
+		}
+
 		try {
-			comm = NXTCommFactory.createNXTComm(NXTCommFactory.USB);
+			if(connectionMethod.equals("bt")) {
+				node.getLog().info("Creating Bluetooth comm...");
+				comm = NXTCommFactory.createNXTComm(NXTCommFactory.BLUETOOTH);
+			} else {
+				node.getLog().info("Creating USB comm...");
+				comm = NXTCommFactory.createNXTComm(NXTCommFactory.USB);
+			}
 		} catch (NXTCommException e) {
-			node.getLog().error("Cannot get USB comm", e);
+			if(connectionMethod.equals("bt")) {
+				node.getLog().error("Cannot get Bluetooth comm", e);
+			} else {
+				node.getLog().error("Cannot get USB comm", e);
+			}
 			return;
 		}
 		
@@ -122,184 +139,287 @@ public class Proxy implements NodeMain {
 		
 		node.getLog().info("Opened device " + brickName);
 		
-		proto = new NXTProtocol(comm) {
-			@Override
-			protected void onAccelerometer(byte port, int x, int y, int z) {
-				if(pubAccelerometer == null) return;
-				Accelerometer m = pubAccelerometer.newMessage();
-				m.setPort(port);
-				m.setX(x);
-				m.setY(y);
-				m.setZ(z);
-				pubAccelerometer.publish(m);
-			}
-			
-			@Override
-			protected void onBatteryLevel(byte port, int levelMilliVolt) {
-				if(pubBattery == null) return;
-				Battery m = pubBattery.newMessage();
-				m.setPort(port);
-				m.setLevelMilliVolts(levelMilliVolt);
-				pubBattery.publish(m);
-			}
-			
-			@Override
-			protected void onButtons(byte port, boolean enter, boolean escape, boolean left, boolean right) {
-				if(pubButtons == null) return;
-				Buttons m = pubButtons.newMessage();
-				m.setPort(port);
-				m.setEnter(enter ? (byte)1 : 0);
-				m.setEscape(escape ? (byte)1 : 0);
-				m.setLeft(left ? (byte)1 : 0);
-				m.setRight(right ? (byte)1 : 0);
-				pubButtons.publish(m);
-			}
-			
-			@Override
-			protected void onColor(byte port, int colorID) {
-				if(pubColor == null) return;
-				Color m = pubColor.newMessage();
-				m.setPort(port);
-				m.setColorId((byte)colorID);
-				pubColor.publish(m);
-			}
-			
-			@Override
-			protected void onColor(byte port, int r, int g, int b) {
-				if(pubColorRGB == null) return;
-				ColorRGB m = pubColorRGB.newMessage();
-				m.setPort(port);
-				m.setR((byte)r);
-				m.setG((byte)g);
-				m.setB((byte)b);
-				pubColorRGB.publish(m);
-			}
-			
-			@Override
-			protected void onColorLightValue(byte port, int value) {
-				if(pubLight == null) return;
-				Light m = pubLight.newMessage();
-				m.setPort(port);
-				m.setLightValue(value);
-				pubLight.publish(m);
-			}
-			
-			@Override
-			protected void onCompass(byte port, float degree) {
-				if(pubCompass == null) return;
-				Compass m = pubCompass.newMessage();
-				m.setPort(port);
-				m.setDegrees(degree);
-				pubCompass.publish(m);
-			}
-			
-			@Override
-			protected void onFreeMemory(byte port, int mem) {
-				if(pubMemory == null) return;
-				Memory m = pubMemory.newMessage();
-				m.setPort(port);
-				m.setFreeMemory(mem);
-				pubMemory.publish(m);
-			}
-			
-			@Override
-			protected void onGyroscope(byte port, float x, float y, float z) {
-				if(pubGyroscope == null) return;
-				Gyroscope m = pubGyroscope.newMessage();
-				m.setPort(port);
-				m.setX(x);
-				m.setY(y);
-				m.setZ(z);
-				pubGyroscope.publish(m);
-			}
-			
-			@Override
-			protected void onLightValue(byte port, int value) {
-				if(pubLight == null) return;
-				Light m = pubLight.newMessage();
-				m.setPort(port);
-				m.setLightValue(value);
-				pubLight.publish(m);
-			}
-			
-			@Override
-			protected void onMotor(byte port, boolean isMoving, boolean isStalled, int tachoCount, int speed, int rotationSpeed, int limitAngle) {
-				if(pubMotor == null) return;
-				Motor m = pubMotor.newMessage();
-				m.setPort(port);
-				m.setMoving(isMoving ? (byte)1 : 0);
-				m.setStalled(isStalled ? (byte)1 : 0);
-				m.setTacho(tachoCount);
-				m.setSpeed(speed);
-				m.setRotationSpeed(rotationSpeed);
-				m.setLimitAngle(limitAngle);
-				pubMotor.publish(m);
-			}
-			
-			@Override
-			protected void onMuxTouch(byte port, boolean b1, boolean b2, boolean b3, boolean b4) {
-				if(pubTouch == null) return;
-				Touch m = pubTouch.newMessage();
-				m.setPort(port);
-				m.setButton((byte)0);
-				m.setPressed(b1 ? (byte)1 : 0);
-				pubTouch.publish(m);
-				m = pubTouch.newMessage();
-				m.setPort(port);
-				m.setButton((byte)1);
-				m.setPressed(b2 ? (byte)1 : 0);
-				pubTouch.publish(m);
-				m = pubTouch.newMessage();
-				m.setPort(port);
-				m.setButton((byte)2);
-				m.setPressed(b3 ? (byte)1 : 0);
-				pubTouch.publish(m);
-				m = pubTouch.newMessage();
-				m.setPort(port);
-				m.setButton((byte)3);
-				m.setPressed(b4 ? (byte)1 : 0);
-				pubTouch.publish(m);
-			}
-			
-			@Override
-			protected void onSound(byte port, int value) {
-				if(pubSound == null) return;
-				Sound m = pubSound.newMessage();
-				m.setPort(port);
-				m.setLevel(value);
-				pubSound.publish(m);
-			}
-			
-			@Override
-			protected void onTouch(byte port, boolean b) {
-				if(pubTouch == null) return;
-				Touch m = pubTouch.newMessage();
-				m.setPort(port);
-				m.setButton((byte)0);
-				m.setPressed(b ? (byte)1 : 0);
-				pubTouch.publish(m);
-			}
-			
-			@Override
-			protected void onUltrasonic(byte port, int range) {
-				if(pubUltrasonic == null) return;
-				Ultrasonic m = pubUltrasonic.newMessage();
-				m.setPort(port);
-				m.setDistance(range);
-				pubUltrasonic.publish(m);
+		DataInputStream inputStream = new DataInputStream(comm.getInputStream());
+		DataOutputStream outputStream = new DataOutputStream(comm.getOutputStream());
+
+		boolean run = true;
+
+		Thread readerThread = new Thread() {
+			public void run() {
+				while(run) {
+					try {
+						byte device = inputStream.readByte();
+						byte port = inputStream.readByte();
+						byte type = inputStream.readByte();
+						byte len = inputStream.readByte();
+						boolean l1, l2, l3, l4; byte b1, b2, b3, b4; int i1, i2, i3; float f1, f2, f3;
+						switch(device) {
+						case DEV_DIAGNOSTICS:
+							switch(type) {
+							case DATA_DIAGNOSTICS_BATTERY_LEVEL:
+								i1 = inputStream.readInt();
+								if(pubBattery != null) {
+									Battery m = pubBattery.newMessage();
+									m.setPort(port);
+									m.setLevelMilliVolts(i1);
+									pubBattery.publish(m);
+								}
+								break;
+							case DATA_DIAGNOSTICS_FREEMEMORY:
+								i1 = inputStream.readInt();
+								if(pubMemory != null) {
+									Memory m = pubMemory.newMessage();
+									m.setPort(port);
+									m.setFreeMemory(i1);
+									pubMemory.publish(m);
+								}
+								break;
+							case DATA_DIAGNOSTICS_BTN_ENTER:
+							case DATA_DIAGNOSTICS_BTN_ESCAPE:
+							case DATA_DIAGNOSTICS_BTN_LEFT:
+							case DATA_DIAGNOSTICS_BTN_RIGHT:
+								l1 = inputStream.readBoolean();
+								if(pubButtons != null) {
+									Buttons m = pubButtons.newMessage();
+									m.setPort(port);
+									//m.setEnter(enter ? (byte)1 : 0);
+									//m.setEscape(escape ? (byte)1 : 0);
+									//m.setLeft(left ? (byte)1 : 0);
+									//m.setRight(right ? (byte)1 : 0);
+									pubButtons.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_MOTOR:
+							switch(type) {
+							case DATA_MOTOR_TACHO:
+								i1 = inputStream.readInt();
+								if(pubMotor != null) {
+									Motor m = pubMotor.newMessage();
+									m.setPort(port);
+									m.setTacho(i1);
+									pubMotor.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_TOUCH:
+							switch(type) {
+							case DATA_TOUCH_STATUS:
+								l1 = inputStream.readBoolean();
+								if(pubTouch != null) {
+									Touch m = pubTouch.newMessage();
+									m.setPort(port);
+									m.setButton((byte)0);
+									m.setPressed(l1 ? (byte)1 : (byte)0);
+									pubTouch.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_SOUND:
+							switch(type) {
+							case DATA_SOUND_LEVEL:
+								i1 = inputStream.readInt();
+								if(pubSound != null) {
+									Sound m = pubSound.newMessage();
+									m.setPort(port);
+									m.setLevel(i1);
+									pubSound.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_LIGHT:
+							switch(type) {
+							case DATA_LIGHT_LEVEL:
+								i1 = inputStream.readInt();
+								if(pubLight != null) {
+									Light m = pubLight.newMessage();
+									m.setPort(port);
+									m.setLightValue(i1);
+									pubLight.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_COLOR:
+							switch(type) {
+							case DATA_COLOR_LEVEL:
+								i1 = inputStream.readInt();
+								if(pubLight != null) {
+									Light m = pubLight.newMessage();
+									m.setPort(port);
+									m.setLightValue(i1);
+									pubLight.publish(m);
+								}
+								break;
+							case DATA_COLOR_ID:
+								i1 = inputStream.readInt();
+								if(pubColor != null) {
+									Color m = pubColor.newMessage();
+									m.setPort(port);
+									m.setColorId((byte)i1);
+									pubColor.publish(m);
+								}
+								break;
+							case DATA_COLOR_RGB:
+								b1 = inputStream.readByte();
+								b2 = inputStream.readByte();
+								b3 = inputStream.readByte();
+								if(pubColorRGB != null) {
+									ColorRGB m = pubColorRGB.newMessage();
+									m.setPort(port);
+									m.setR((byte)b1);
+									m.setG((byte)b2);
+									m.setB((byte)b3);
+									pubColorRGB.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_ULTRASONIC:
+							switch(type) {
+							case DATA_ULTRASONIC_DISTANCE:
+								i1 = inputStream.readInt();
+								if(pubUltrasonic != null) {
+									Ultrasonic m = pubUltrasonic.newMessage();
+									m.setPort(port);
+									m.setDistance(i1);
+									pubUltrasonic.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_TOUCHMUX:
+							switch(type) {
+							case DATA_TOUCHMUX_STATUS:
+								l1 = inputStream.readBoolean();
+								l2 = inputStream.readBoolean();
+								l3 = inputStream.readBoolean();
+								l4 = inputStream.readBoolean();
+								if(pubTouch != null) {
+									Touch m = pubTouch.newMessage();
+									m.setPort(port);
+									m.setButton((byte)0);
+									m.setPressed(l1 ? (byte)1 : (byte)0);
+									pubTouch.publish(m);
+									Touch m = pubTouch.newMessage();
+									m.setPort(port);
+									m.setButton((byte)1);
+									m.setPressed(l2 ? (byte)1 : (byte)0);
+									pubTouch.publish(m);
+									Touch m = pubTouch.newMessage();
+									m.setPort(port);
+									m.setButton((byte)2);
+									m.setPressed(l3 ? (byte)1 : (byte)0);
+									pubTouch.publish(m);
+									Touch m = pubTouch.newMessage();
+									m.setPort(port);
+									m.setButton((byte)3);
+									m.setPressed(l4 ? (byte)1 : (byte)0);
+									pubTouch.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_IRLINK:
+							break;
+						case DEV_DIMU:
+							switch(type) {
+							case DATA_DIMU_ACCEL:
+								i1 = inputStream.readInt();
+								i2 = inputStream.readInt();
+								i3 = inputStream.readInt();
+								if(pubAccelerometer != null) {
+									Accelerometer m = pubAccelerometer.newMessage();
+									m.setPort(port);
+									m.setX(i1);
+									m.setY(i2);
+									m.setZ(i3);
+									pubAccelerometer.publish(m);
+								}
+								break;
+							case DATA_DIMU_GYRO:
+								f1 = inputStream.readFloat();
+								f2 = inputStream.readFloat();
+								f3 = inputStream.readFloat();
+								if(pubGyroscope != null) {
+									Gyroscope m = pubGyroscope.newMessage();
+									m.setPort(port);
+									m.setX(f1);
+									m.setY(f2);
+									m.setZ(f3);
+									pubGyroscope.publish(m);
+								}
+								break;
+							}
+							break;
+						case DEV_DCOMPASS:
+							switch(type) {
+							case DATA_DCOMPASS_HEADING:
+								f1 = inputStream.readFloat();
+								if(pubCompass != null) {
+									Compass m = pubCompass.newMessage();
+									m.setPort(port);
+									m.setDegrees(f1);
+									pubCompass.publish(m);
+								}
+								break;
+							}
+							break;
+						}
+					} catch(IOException e) {
+						e.printStackTrace();
+						run = false;
+						return;
+					}
+				}
 			}
 		};
-		
+		readerThread.start();
+
 		setupPorts(node, params);
 	}
-	
+
+	protected static final String portNames = new String[]{"internal", "s1", "s2", "s3", "s4", "a", "b", "c"};
+
+	protected static byte port(String portStr) {
+		if(portStr.equals("internal")) return PORT_INTERNAL;
+		if(portStr.equals("s1")) return PORT_S1;
+		if(portStr.equals("s2")) return PORT_S2;
+		if(portStr.equals("s3")) return PORT_S3;
+		if(portStr.equals("s4")) return PORT_S4;
+		if(portStr.equals("a")) return PORT_A;
+		if(portStr.equals("b")) return PORT_B;
+		if(portStr.equals("c")) return PORT_C;
+		return -1;
+	}	
+
+	protected static byte device(String deviceStr) {
+		if(deviceStr.equals("dummy")) return DEV_DUMMY;
+		if(deviceStr.equals("diagnostics")) return DEV_DIAGNOSTICS;
+		if(deviceStr.equals("motor")) return DEV_MOTOR;
+		if(deviceStr.equals("touch")) return DEV_TOUCH;
+		if(deviceStr.equals("sound")) return DEV_SOUND;
+		if(deviceStr.equals("light")) return DEV_LIGHT;
+		if(deviceStr.equals("color")) return DEV_COLOR;
+		if(deviceStr.equals("ultrasonic")) return DEV_ULTRASONIC;
+		if(deviceStr.equals("touchmux")) return DEV_TOUCHMUX;
+		if(deviceStr.equals("irlink")) return DEV_IRLINK;
+		if(deviceStr.equals("dimu")) return DEV_DIMU;
+		if(deviceStr.equals("dcompass")) return DEV_DCOMPASS;
+		return -1;
+	}
+
 	protected void setupPorts(final ConnectedNode node, ParameterTree params) {
-		for(String portName : NXTProtocolString.portNames()) {
+		for(String portName : portNames) {
 			String paramName = "~port/" + portName + "/type";
 			if(params.has(paramName)) {
 				final String t = params.getString(paramName);
-				final byte port = NXTProtocolString.portFromString(portName);
-				final byte type = NXTProtocolString.typeFromString(t);
+				final byte port = port(portName);
+				final byte type = type(t);
 				try {
 					proto.setupPort(port, type);
 				} catch (IOException e) {
