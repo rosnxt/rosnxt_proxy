@@ -50,7 +50,7 @@ import org.ros.node.topic.Subscriber;
 
 import rosnxt_msgs.*;
 
-import static com.github.rosnxt.proxy.NXTProtocolConstants.*;
+import static com.github.rosnxt.proxy.ProtocolConstants.*;
 
 /**
  * ROS node acting as a proxy for communication with the ROS-responder
@@ -411,6 +411,150 @@ public class Proxy implements NodeMain {
 		if(deviceStr.equals("dimu")) return DEV_DIMU;
 		if(deviceStr.equals("dcompass")) return DEV_DCOMPASS;
 		return -1;
+	}
+
+	protected void cmdSystemSetDeviceType(byte port, byte type) {
+		outputStream.writeByte(DEV_SYSTEM);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_SYSTEM_SET_DEVICE_TYPE);
+		outputStream.writeByte(1);
+		outputStream.writeByte(type);
+		outputStream.flush()
+	}
+
+	protected void cmdSystemSetDeviceType(byte port, byte subport, int period) {
+		outputStream.writeByte(DEV_SYSTEM);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_SYSTEM_SET_POLL_PERIOD);
+		outputStream.writeByte(1 + Integer.SIZE/Byte.SIZE);
+		outputStream.writeByte(subport);
+		outputStream.writeInt(period);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorRotate(byte port, byte direction) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_ROTATE);
+		outputStream.writeByte(1);
+		outputStream.writeByte(direction);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorRotateBy(byte port, int angle) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_ROTATE_BY);
+		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(angle);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorRotateTo(byte port, int angle) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_ROTATE_TO);
+		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(angle);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorFlt(byte port) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_FLT);
+		outputStream.writeByte(0);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorStop(byte port) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_STOP);
+		outputStream.writeByte(0);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorSetSpeed(byte port, int speed) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_SET_SPEED);
+		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(speed);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorSetAccel(byte port, int accel) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_SET_ACCEL);
+		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(accel);
+		outputStream.flush()
+	}
+
+	protected void cmdMotorSetStallTreshold(byte port, int error, int time) {
+		outputStream.writeByte(DEV_MOTOR);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_MOTOR_SET_STALL_TRESHOLD);
+		outputStream.writeByte(2*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(error);
+		outputStream.writeInt(time);
+		outputStream.flush()
+	}
+
+	protected void cmdIRLinkSendComboDirect(byte port, int channel, int opA, int opB) {
+		outputStream.writeByte(DEV_IRLINK);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_IRLINK_SEND_COMBO_DIRECT);
+		outputStream.writeByte(3*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(channel);
+		outputStream.writeInt(opA);
+		outputStream.writeInt(opB);
+		outputStream.flush()
+	}
+
+	protected void cmdIRLinkSendComboPWM(byte port, int channel, int opA, int opB) {
+		outputStream.writeByte(DEV_IRLINK);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_IRLINK_SEND_COMBO_PWM);
+		outputStream.writeByte(3*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(channel);
+		outputStream.writeInt(opA);
+		outputStream.writeInt(opB);
+		outputStream.flush()
+	}
+
+	protected void cmdIRLinkSendExtended(byte port, int channel, int opA) {
+		outputStream.writeByte(DEV_IRLINK);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_IRLINK_SEND_EXTENDED);
+		outputStream.writeByte(2*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(channel);
+		outputStream.writeInt(opA);
+		outputStream.flush()
+	}
+
+	protected void cmdIRLinkSendSingleCST(byte port, int channel, int opA, int opB) {
+		outputStream.writeByte(DEV_IRLINK);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_IRLINK_SEND_SINGLE_CST);
+		outputStream.writeByte(3*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(channel);
+		outputStream.writeInt(opA);
+		outputStream.writeInt(opB);
+		outputStream.flush()
+	}
+
+	protected void cmdIRLinkSendSinglePWM(byte port, int channel, int opA, int opB) {
+		outputStream.writeByte(DEV_IRLINK);
+		outputStream.writeByte(port);
+		outputStream.writeByte(CMD_IRLINK_SEND_SINGLE_PWM);
+		outputStream.writeByte(3*Integer.SIZE/Byte.SIZE);
+		outputStream.writeInt(channel);
+		outputStream.writeInt(opA);
+		outputStream.writeInt(opB);
+		outputStream.flush()
 	}
 
 	protected void setupPorts(final ConnectedNode node, ParameterTree params) {
