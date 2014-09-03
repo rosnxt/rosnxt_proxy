@@ -422,7 +422,7 @@ public class Proxy implements NodeMain {
 		outputStream.flush()
 	}
 
-	protected void cmdSystemSetDeviceType(byte port, byte subport, int period) {
+	protected void cmdSystemSetPollPeriod(byte port, byte subport, int period) {
 		outputStream.writeByte(DEV_SYSTEM);
 		outputStream.writeByte(port);
 		outputStream.writeByte(CMD_SYSTEM_SET_POLL_PERIOD);
@@ -565,13 +565,16 @@ public class Proxy implements NodeMain {
 				final byte port = port(portName);
 				final byte type = type(t);
 				try {
-					proto.setupPort(port, type);
+					cmdSystemSetDeviceType(port, type);
 				} catch (IOException e) {
 					node.getLog().info("setup port '" + portName + "': io error", e);
 				}
 				for(int i = 0; i < 9; i++) {
-					String pp = "~port/" + portName + "/slot/" + i + "/pollPeriod";
+					String pp = "~port/" + portName + "/subport/" + i + "/poll_period";
 					if(params.has(pp)) {
+						int period = params.getInt(pp);
+						cmdSystemSetPollPeriod(port, (byte)i, period);
+
 						switch(type) {
 						case TYPE_COLOR:
 							switch(i) {
