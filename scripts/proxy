@@ -1,4 +1,135 @@
-#!/bin/sh
-mkdir -p $(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/lib/native
-cp $(rospack find rosnxt_proxy)/lib/libjlibnxt.so $(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/lib/native/
-$(rospack find rosnxt_proxy)/build/install/rosnxt_proxy/bin/rosnxt_proxy com.github.rosnxt.Proxy $@
+#!/usr/bin/env python
+import rospy
+import os, subprocess, io, re, struct
+
+from std_msgs.msg import String
+
+DEV_NULL =         0
+DEV_DIAGNOSTICS =  1
+DEV_MOTOR =        2
+DEV_TOUCH =        3
+DEV_SOUND =        4
+DEV_LIGHT =        5
+DEV_COLOR =        6
+DEV_ULTRASONIC =   7
+DEV_TOUCHMUX =     8
+DEV_IRLINK =       9
+DEV_DIMU =        10
+DEV_DCOMPASS =    11
+DEV_SYSTEM =     127
+	
+PORT_INTERNAL = 0
+PORT_S1 =       1; 
+PORT_S2 =       2
+PORT_S3 =       3
+PORT_S4 =       4
+PORT_A =        5
+PORT_B =        6
+PORT_C =        7
+	
+CMD_SYSTEM_SET_DEVICE_TYPE = 0
+CMD_SYSTEM_SET_POLL_PERIOD = 1
+	
+CMD_MOTOR_ROTATE_BY = 0
+CMD_MOTOR_ROTATE_TO = 1
+CMD_MOTOR_ROTATE = 2
+CMD_MOTOR_FLT = 3
+CMD_MOTOR_STOP = 4
+CMD_MOTOR_SET_SPEED = 5
+CMD_MOTOR_SET_ACCEL = 6
+CMD_MOTOR_SET_POWER = 7
+CMD_MOTOR_SET_STALL_THRESHOLD = 8
+	
+CMD_IRLINK_SEND_COMBO_DIRECT = 0
+CMD_IRLINK_SEND_COMBO_PWM = 1
+CMD_IRLINK_SEND_EXTENDED = 2
+CMD_IRLINK_SEND_SINGLE_CST = 3
+CMD_IRLINK_SEND_SINGLE_PWM = 4
+	
+DATA_DIAGNOSTICS_BATTERY_LEVEL = 0; # millivolts
+DATA_DIAGNOSTICS_FREEMEMORY = 1; # bytes
+DATA_DIAGNOSTICS_BTN_ENTER = 2
+DATA_DIAGNOSTICS_BTN_ESCAPE = 3
+DATA_DIAGNOSTICS_BTN_LEFT = 4
+DATA_DIAGNOSTICS_BTN_RIGHT = 5
+	
+DATA_MOTOR_TACHO = 0
+	
+DATA_TOUCH_STATUS = 0
+	
+DATA_SOUND_LEVEL = 0
+	
+DATA_LIGHT_LEVEL = 0
+	
+DATA_COLOR_LEVEL = 0
+DATA_COLOR_ID = 1
+DATA_COLOR_RGB = 2
+
+DATA_ULTRASONIC_DISTANCE = 0
+	
+DATA_TOUCHMUX_STATUS = 0
+	
+DATA_DIMU_ACCEL = 0
+DATA_DIMU_GYRO = 1
+	
+DATA_DCOMPASS_HEADING = 0
+
+def send_cmd(writer, dev, port, cmd, fmt='', *payload):
+    buf = bytearray(struct.pack('>bbbb'+fmt, dev, port, cmd, 0, *payload))
+    buf[3] = len(buf) - 4
+    writer.write(buf)
+    writer.flush()
+
+def system_set_device_type(writer, port, device_type):
+    send_cmd(writer, DEV_SYSTEM, port, CMD_SYSTEM_SET_DEVICE_TYPE, 'b', device_type)
+
+def system_set_poll_period(writer, port, subport, period):
+    send_cmd(writer, DEV_SYSTEM, port, CMD_SYSTEM_SET_POLL_PERIOD, 'bi', subport, period)
+
+def motor_rotate(writer, port, direction):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE, 'b', direction)
+
+def motor_rotate_by(writer, port, angle):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE_BY, 'i', angle)
+
+def motor_rotate_to(writer, port, angle):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE_TO, 'i', angle)
+
+def motor_flt(writer, port):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_FLT)
+
+def motor_stop(writer, port):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_STOP)
+
+def motor_set_speed(writer, port, speed):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_SPEED, 'i', speed)
+
+def motor_set_accel(writer, port, accel):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_ACCEL, 'i', accel)
+
+def motor_set_stall_treshold(writer, port, error, time):
+    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_STALL_TRESHOLD, 'ii', error, time)
+
+def rosnxt_proxy():
+    rospy.init_node('rosnxt_proxy', anonymous=True)
+    brick_name = rospy.get_param('~brick_name')
+    connection_method = rospy.get_param('~connection_method') # 'bt' or 'usb'
+    cp = ':'.join(list(os.path.join(dirname, filename) for dirname, subdirs, filenames in os.walk(os.environ['NXJ_HOME']) for filename in filenames if re.match(r'.*\.jar', filename))+['classes'])
+    p = subprocess.Popen(['java', '-cp', cp, 'com.github.rosnxt.passtrough.Passtrough', brick_name, connection_method], stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+    system_set_device_type(p.stdin, PORT_A, DEV_MOTOR)
+    motor_rotate_by(p.stdin, PORT_A, 4*360)
+    p.wait()
+
+    #pub = rospy.Publisher('chatter', String, queue_size=10)
+    #r = rospy.Rate(10) # 10hz
+    #while not rospy.is_shutdown():
+        #str = NXJ_HOME+"hello world %s"%rospy.get_time()
+        #rospy.loginfo(str)
+        #pub.publish(str)
+        #r.sleep()
+
+if __name__ == '__main__':
+    try:
+        rosnxt_proxy()
+    except rospy.ROSInterruptException: pass
+
