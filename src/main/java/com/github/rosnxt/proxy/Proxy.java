@@ -61,7 +61,6 @@ import static com.github.rosnxt.proxy.ProtocolConstants.*;
  */
 public class Proxy implements NodeMain {
 	private NXTComm comm;
-	private NXTProtocol proto;
 	
 	private Publisher<Accelerometer> pubAccelerometer = null;
 	private Publisher<Battery> pubBattery = null;
@@ -419,7 +418,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_SYSTEM_SET_DEVICE_TYPE);
 		outputStream.writeByte(1);
 		outputStream.writeByte(type);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdSystemSetPollPeriod(byte port, byte subport, int period) {
@@ -429,7 +428,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(1 + Integer.SIZE/Byte.SIZE);
 		outputStream.writeByte(subport);
 		outputStream.writeInt(period);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorRotate(byte port, byte direction) {
@@ -438,7 +437,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_MOTOR_ROTATE);
 		outputStream.writeByte(1);
 		outputStream.writeByte(direction);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorRotateBy(byte port, int angle) {
@@ -447,7 +446,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_MOTOR_ROTATE_BY);
 		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(angle);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorRotateTo(byte port, int angle) {
@@ -456,7 +455,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_MOTOR_ROTATE_TO);
 		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(angle);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorFlt(byte port) {
@@ -464,7 +463,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(port);
 		outputStream.writeByte(CMD_MOTOR_FLT);
 		outputStream.writeByte(0);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorStop(byte port) {
@@ -472,7 +471,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(port);
 		outputStream.writeByte(CMD_MOTOR_STOP);
 		outputStream.writeByte(0);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorSetSpeed(byte port, int speed) {
@@ -481,7 +480,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_MOTOR_SET_SPEED);
 		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(speed);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorSetAccel(byte port, int accel) {
@@ -490,7 +489,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(CMD_MOTOR_SET_ACCEL);
 		outputStream.writeByte(Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(accel);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdMotorSetStallTreshold(byte port, int error, int time) {
@@ -500,7 +499,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(2*Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(error);
 		outputStream.writeInt(time);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdIRLinkSendComboDirect(byte port, int channel, int opA, int opB) {
@@ -511,7 +510,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeInt(channel);
 		outputStream.writeInt(opA);
 		outputStream.writeInt(opB);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdIRLinkSendComboPWM(byte port, int channel, int opA, int opB) {
@@ -522,7 +521,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeInt(channel);
 		outputStream.writeInt(opA);
 		outputStream.writeInt(opB);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdIRLinkSendExtended(byte port, int channel, int opA) {
@@ -532,7 +531,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeByte(2*Integer.SIZE/Byte.SIZE);
 		outputStream.writeInt(channel);
 		outputStream.writeInt(opA);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdIRLinkSendSingleCST(byte port, int channel, int opA, int opB) {
@@ -543,7 +542,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeInt(channel);
 		outputStream.writeInt(opA);
 		outputStream.writeInt(opB);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void cmdIRLinkSendSinglePWM(byte port, int channel, int opA, int opB) {
@@ -554,7 +553,7 @@ public class Proxy implements NodeMain {
 		outputStream.writeInt(channel);
 		outputStream.writeInt(opA);
 		outputStream.writeInt(opB);
-		outputStream.flush()
+		outputStream.flush();
 	}
 
 	protected void setupPorts(final ConnectedNode node, ParameterTree params) {
