@@ -2,7 +2,8 @@
 import rospy
 import os, subprocess, io, re, struct
 
-from std_msgs.msg import String
+from std_msgs.msg import *
+from geometry_msgs.msg import *
 
 DEV_NULL =         0
 DEV_DIAGNOSTICS =  1
@@ -74,62 +75,313 @@ DATA_DIMU_GYRO = 1
 	
 DATA_DCOMPASS_HEADING = 0
 
-def send_cmd(writer, dev, port, cmd, fmt='', *payload):
-    buf = bytearray(struct.pack('>bbbb'+fmt, dev, port, cmd, 0, *payload))
-    buf[3] = len(buf) - 4
-    writer.write(buf)
-    writer.flush()
+PORT_NAME = {
+    PORT_INTERNAL: 'int',
+    PORT_S1: 's1',
+    PORT_S2: 's2',
+    PORT_S3: 's3',
+    PORT_S4: 's4',
+    PORT_A: 'a',
+    PORT_B: 'b',
+    PORT_C: 'c'
+}
 
-def system_set_device_type(writer, port, device_type):
-    send_cmd(writer, DEV_SYSTEM, port, CMD_SYSTEM_SET_DEVICE_TYPE, 'b', device_type)
+DEV_NAME = {
+    DEV_NULL: 'null',
+    DEV_DIAGNOSTICS: 'diagnostics',
+    DEV_MOTOR: 'motor',
+    DEV_TOUCH: 'touch',
+    DEV_SOUND: 'sound',
+    DEV_LIGHT: 'light',
+    DEV_COLOR: 'color',
+    DEV_ULTRASONIC: 'ultrasonic',
+    DEV_TOUCHMUX: 'touchmux',
+    DEV_IRLINK: 'irlink',
+    DEV_DIMU: 'dimu',
+    DEV_DCOMPASS: 'dcompass',
+    DEV_SYSTEM: 'system'
+}
 
-def system_set_poll_period(writer, port, subport, period):
-    send_cmd(writer, DEV_SYSTEM, port, CMD_SYSTEM_SET_POLL_PERIOD, 'bi', subport, period)
+class rosnxt_proxy:
+    def __init__(self):
+        rospy.init_node('rosnxt_proxy', anonymous=True)
+        self.brick_name = rospy.get_param('~brick_name')
+        self.connection_method = rospy.get_param('~connection_method') # 'bt' or 'usb'
 
-def motor_rotate(writer, port, direction):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE, 'b', direction)
+        # spawn subprocess handling communication to/from NXT:
+        cp = ':'.join(list(os.path.join(dirname, filename) for dirname, subdirs, filenames in os.walk(os.environ['NXJ_HOME']) for filename in filenames if re.match(r'.*\.jar', filename))+['classes'])
+        self.nxt = subprocess.Popen(['java', '-cp', cp, 'com.github.rosnxt.passtrough.Passtrough', brick_name, connection_method], stderr=subprocess.PIPE, stdin=subprocess.PIPE)
 
-def motor_rotate_by(writer, port, angle):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE_BY, 'i', angle)
+        # port -> (device, data_type) -> publisher (for sensor readings)
+        self.publishers = {
+            PORT_INTERNAL: {}
+            PORT_S1:       {}
+            PORT_S2:       {}
+            PORT_S3:       {}
+            PORT_S4:       {}
+            PORT_A:        {}
+            PORT_B:        {}
+            PORT_C:        {}
+        }
 
-def motor_rotate_to(writer, port, angle):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_ROTATE_TO, 'i', angle)
+        # port -> (device, cmd) -> subscriber (for commands)
+        self.subscribers = {
+            PORT_INTERNAL: {}
+            PORT_S1:       {}
+            PORT_S2:       {}
+            PORT_S3:       {}
+            PORT_S4:       {}
+            PORT_A:        {}
+            PORT_B:        {}
+            PORT_C:        {}
+        }
 
-def motor_flt(writer, port):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_FLT)
+        for port in [PORT_INTERNAL, PORT_S1, PORT_S2, PORT_S3, PORT_S4, PORT_A, PORT_B, PORT_C]:
+            pn = '%s/type' % PORT_NAME[port]
+            if rospy.has_param(pn)
+                v = rospy.get_param(pn)
+                for device_type, devstr in DEV_NAME.items():
+                    if devstr == v:
+                        self.system_set_device_type(port, device_type)
+                        break
 
-def motor_stop(writer, port):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_STOP)
+        while 1:
+            device, port, datatype, length = struct.unpack('>bbbb', self.nxt.stderr.read(4))
+            if device == DEV_NULL:
+            elif device == DEV_DIAGNOSTICS:
+                if datatype in [DATA_DIAGNOSTICS_BATTERY_LEVEL, DATA_DIAGNOSTICS_FREEMEMORY]:
+                    m = UInt32()
+                    m.data = struct.unpack('>i', self.nxt.stderr.read(length))
+                elif datatype in [DATA_DIAGNOSTICS_BTN_ENTER, DATA_DIAGNOSTICS_BTN_ESCAPE, DATA_DIAGNOSTICS_BTN_LEFT, DATA_DIAGNOSTICS_BTN_RIGHT]:
+                    m = UInt8()
+                    m.data = struct.unpack('>b', self.nxt.stderr.read(length))
+            elif device == DEV_MOTOR:
+                if datatype == DATA_MOTOR_STATUS:
+                    m = rosnxt_msgs.msg.Motor()
+                    m.tacho, m.moving, m.stalled = struct.unpack('>ibb', self.nxt.stderr.read(length))
+            elif device == DEV_TOUCH:
+                if datatype == DATA_TOUCH_STATUS:
+                    m = Bool()
+                    m.data = struct.unpack('>b', self.nxt.stderr.read(length))
+            elif device == DEV_SOUND:
+                if datatype == DATA_SOUND_LEVEL:
+                    m = UInt32()
+                    m.data = struct.unpack('>i', self.nxt.stderr.read(length))
+            elif device == DEV_LIGHT:
+                if datatype == DATA_LIGHT_LEVEL:
+                    m = UInt32()
+                    m.data = struct.unpack('>i', self.nxt.stderr.read(length))
+            elif device == DEV_COLOR:
+                if datatype in [DATA_COLOR_LEVEL, DATA_COLOR_ID]:
+                    m = UInt32()
+                    m.data = struct.unpack('>i', self.nxt.stderr.read(length))
+                elif datatype == DATA_COLOR_RGB:
+                    m = ColorRGBA()
+                    m.r, m.g, m.b = struct.unpack('>bbb', self.nxt.stderr.read(length))
+            elif device == DEV_ULTRASONIC:
+                if datatype == DATA_ULTRASONIC_DISTANCE:
+                    m = UInt32()
+                    m.data = struct.unpack('>i', self.nxt.stderr.read(length))
+            elif device == DEV_TOUCHMUX:
+                if datatype == DATA_TOUCHMUX_STATUS:
+                    m = UInt32()
+                    m.data = 0
+                    m1 = Bool(); m2 = Bool(); m3 = Bool(); m4 = Bool()
+                    m1.data, m2.data, m3.data, m4.data = struct.unpack('>bbbb', self.nxt.stderr.read(length))
+                    self.publishers[port][(device, datatype+1001)].publish(m1)
+                    self.publishers[port][(device, datatype+1002)].publish(m2)
+                    self.publishers[port][(device, datatype+1003)].publish(m3)
+                    self.publishers[port][(device, datatype+1004)].publish(m4)
+            elif device == DEV_IRLINK:
+                continue
+            elif device == DEV_DIMU:
+                m = Vector3()
+                if datatype == DATA_IMU_ACCEL:
+                    m.x, m.y, m.z = struct.unpack('>iii', self.nxt.stderr.read(length))
+                elif datatype == DATA_IMU_GYRO:
+                    m.x, m.y, m.z = struct.unpack('>fff', self.nxt.stderr.read(length))
+            elif device == DEV_DCOMPASS:
+                if datatype == DATA_DCOMPASS_HEADING:
+                    m = Float32()
+                    m.data = struct.unpack('>f', self.nxt.stderr.read(length))
+            elif device == DEV_SYSTEM:
+                continue
+            else:
+                continue
+            self.publishers[port][(device, datatype)].publish(m)
 
-def motor_set_speed(writer, port, speed):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_SPEED, 'i', speed)
+    def __send_cmd(self, dev, port, cmd, fmt='', *payload):
+        buf = bytearray(struct.pack('>bbbb' + fmt, dev, port, cmd, 0, *payload))
+        buf[3] = len(buf) - 4
+        self.nxt.stdin.write(buf)
+        self.nxt.stdin.flush()
 
-def motor_set_accel(writer, port, accel):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_ACCEL, 'i', accel)
+    def is_sensor_port(self, port):
+        return port in [PORT_S1, PORT_S2, PORT_S3, PORT_S4]
 
-def motor_set_stall_treshold(writer, port, error, time):
-    send_cmd(writer, DEV_MOTOR, port, CMD_MOTOR_SET_STALL_TRESHOLD, 'ii', error, time)
+    def is_motor_port(self, port):
+        return port in [PORT_A, PORT_B, PORT_C]
 
-def rosnxt_proxy():
-    rospy.init_node('rosnxt_proxy', anonymous=True)
-    brick_name = rospy.get_param('~brick_name')
-    connection_method = rospy.get_param('~connection_method') # 'bt' or 'usb'
-    cp = ':'.join(list(os.path.join(dirname, filename) for dirname, subdirs, filenames in os.walk(os.environ['NXJ_HOME']) for filename in filenames if re.match(r'.*\.jar', filename))+['classes'])
-    p = subprocess.Popen(['java', '-cp', cp, 'com.github.rosnxt.passtrough.Passtrough', brick_name, connection_method], stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-    system_set_device_type(p.stdin, PORT_A, DEV_MOTOR)
-    motor_rotate_by(p.stdin, PORT_A, 4*360)
-    p.wait()
+    def system_set_device_type(self, port, device_type):
+        self.__send_cmd(self, DEV_SYSTEM, port, CMD_SYSTEM_SET_DEVICE_TYPE, 'b', device_type)
+        if device_type == DEV_NULL:
+            self.publishers[port] = set()
+            self.subscribers[port] = set()
+        elif device_type == DEV_DIAGNOSTICS and not (self.is_sensor_port(port) or self.is_motor_port(port)):
+            self.publishers[port] = {
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_BATTERY_LEVEL):
+                    rospy.Publisher('%s/battery_level' % PORT_NAME[port], UInt32, queue_size=2),
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_FREEMEMORY):
+                    rospy.Publisher('%s/free_memory' % PORT_NAME[port], UInt32, queue_size=2),
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_BTN_ENTER):
+                    rospy.Publisher('%s/btn/enter' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_BTN_ESCAPE):
+                    rospy.Publisher('%s/btn/escape' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_BTN_LEFT):
+                    rospy.Publisher('%s/btn/left' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_DIAGNOSTICS, DATA_DIAGNOSTICS_BTN_RIGHT):
+                    rospy.Publisher('%s/btn/right' % PORT_NAME[port], Bool, queue_size=2)
+            }
+        elif device_type == DEV_MOTOR and self.is_motor_port(port):
+            self.publishers[port] = {
+                (DEV_MOTOR, DATA_MOTOR_STATUS):
+                    rospy.Publisher('%s/motor_status' % PORT_NAME[port], rosnxt_msgs.msg.Motor, queue_size=2)
+            }
+            self.subscribers[port] = {
+                (DEV_MOTOR, CMD_MOTOR_ROTATE):
+                    rospy.Subscriber('%s/motor_rotate' % PORT_NAME[port], Int8, lambda msg: self.motor_rotate(port, msg.data))
+                (DEV_MOTOR, CMD_MOTOR_ROTATE_BY):
+                    rospy.Subscriber('%s/motor_rotate_by' % PORT_NAME[port], Int32, lambda msg: self.motor_rotate_by(port, msg.data))
+                (DEV_MOTOR, CMD_MOTOR_ROTATE_TO):
+                    rospy.Subscriber('%s/motor_rotate_to' % PORT_NAME[port], Int32, lambda msg: self.motor_rotate_to(port, msg.data))
+                (DEV_MOTOR, CMD_MOTOR_FLT):
+                    rospy.Subscriber('%s/motor_flt' % PORT_NAME[port], Empty, lambda msg: self.motor_flt(port))
+                (DEV_MOTOR, CMD_MOTOR_STOP):
+                    rospy.Subscriber('%s/motor_stop' % PORT_NAME[port], Empty, lambda msg: self.motor_stop(port))
+                (DEV_MOTOR, CMD_MOTOR_SET_SPEED):
+                    rospy.Subscriber('%s/motor_set_speed' % PORT_NAME[port], Int32, lambda msg: self.motor_set_speed(port, msg.data))
+                (DEV_MOTOR, CMD_MOTOR_SET_ACCEL):
+                    rospy.Subscriber('%s/motor_set_accel' % PORT_NAME[port], Int32, lambda msg: self.motor_set_accel(port, msg.data))
+                (DEV_MOTOR, CMD_MOTOR_SET_STALL_THRESHOLD):
+                    rospy.Subscriber('%s/motor_set_stall_threshold' % PORT_NAME[port], rosnxt_msgs.msg.MotorSetStallTreshold, lambda msg: self.motor_set_stall_treshold(port, msg.error, msg.time))
+            }
+        elif device_type == DEV_TOUCH and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_TOUCH, DATA_TOUCH_STATUS):
+                    rospy.Publisher('%s/touch' % PORT_NAME[port], Bool, queue_size=2)
+            }
+        elif device_type == DEV_SOUND and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_SOUND, DATA_SOUND_LEVEL):
+                    rospy.Publisher('%s/sound_level' % PORT_NAME[port], UInt32, queue_size=2)
+            }
+        elif device_type == DEV_LIGHT and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_LIGHT, DATA_LIGHT_LEVEL):
+                    rospy.Publisher('%s/light_level' % PORT_NAME[port], UInt32, queue_size=2)
+            }
+        elif device_type == DEV_COLOR and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_COLOR, DATA_COLOR_LEVEL):
+                    rospy.Publisher('%s/light_level' % PORT_NAME[port], UInt32, queue_size=2),
+                (DEV_COLOR, DATA_COLOR_ID):
+                    rospy.Publisher('%s/color_id' % PORT_NAME[port], UInt32, queue_size=2),
+                (DEV_COLOR, DATA_COLOR_LEVEL):
+                    rospy.Publisher('%s/color' % PORT_NAME[port], ColorRGBA, queue_size=2)
+            }
+        elif device_type == DEV_ULTRASONIC and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_ULTRASONIC, DATA_ULTRASONIC_DISTANCE):
+                    rospy.Publisher('%s/distance' % PORT_NAME[port], UInt32, queue_size=2)
+            }
+        elif device_type == DEV_TOUCHMUX and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_TOUCHMUX, DATA_TOUCHMUX_STATUS):
+                    rospy.Publisher('%s/mux' % PORT_NAME[port], UInt8, queue_size=2),
+                (DEV_TOUCHMUX, DATA_TOUCHMUX_STATUS+1001):
+                    rospy.Publisher('%s/mux1/touch' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_TOUCHMUX, DATA_TOUCHMUX_STATUS+1002):
+                    rospy.Publisher('%s/mux2/touch' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_TOUCHMUX, DATA_TOUCHMUX_STATUS+1003):
+                    rospy.Publisher('%s/mux3/touch' % PORT_NAME[port], Bool, queue_size=2),
+                (DEV_TOUCHMUX, DATA_TOUCHMUX_STATUS+1004):
+                    rospy.Publisher('%s/mux4/touch' % PORT_NAME[port], Bool, queue_size=2)
+            }
+        elif device_type == DEV_IRLINK and self.is_sensor_port(port):
+            self.publishers[port] = {}
+            self.subscribers[port] = {
+                (DEV_IRLINK, CMD_IRLINK_SEND_EXTENDED):
+                    rospy.Subscriber('%s/irlink_send_extended' % PORT_NAME[port], rosnxt_msgs.msg.IRLinkCmd, lambda msg: self.irlink_send_extended(port, msg.channel, msg.op_a)),
+                (DEV_IRLINK, CMD_IRLINK_SEND_SINGLE_CST):
+                    rospy.Subscriber('%s/irlink_send_single_cst' % PORT_NAME[port], rosnxt_msgs.msg.IRLinkCmd, lambda msg: self.irlink_send_single_cst(port, msg.channel, msg.op_a, msg.op_b)),
+                (DEV_IRLINK, CMD_IRLINK_SEND_SINGLE_PWM):
+                    rospy.Subscriber('%s/irlink_send_single_pwm' % PORT_NAME[port], rosnxt_msgs.msg.IRLinkCmd, lambda msg: self.irlink_send_single_pwm(port, msg.channel, msg.op_a, msg.op_b)),
+                (DEV_IRLINK, CMD_IRLINK_SEND_COMBO_DIRECT):
+                    rospy.Subscriber('%s/irlink_send_combo_direct' % PORT_NAME[port], rosnxt_msgs.msg.IRLinkCmd, lambda msg: self.irlink_send_combo_direct(port, msg.channel, msg.op_a, msg.op_b)),
+                (DEV_IRLINK, CMD_IRLINK_SEND_COMBO_PWM):
+                    rospy.Subscriber('%s/irlink_send_combo_pwm' % PORT_NAME[port], rosnxt_msgs.msg.IRLinkCmd, lambda msg: self.irlink_send_combo_pwm(port, msg.channel, msg.op_a, msg.op_b))
+            }
+        elif device_type == DEV_DIMU and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_DIMU, DATA_DIMU_ACCEL):
+                    rospy.Publisher('%s/accel' % PORT_NAME[port], Vector3, queue_size=2),
+                (DEV_DIMU, DATA_DIMU_GYRO):
+                    rospy.Publisher('%s/gyro' % PORT_NAME[port], Vector3, queue_size=2)
+            }
+        elif device_type == DEV_DCOMPASS and self.is_sensor_port(port):
+            self.publishers[port] = {
+                (DEV_DCOMPASS, DATA_DCOMPASS_HEADING):
+                    rospy.Publisher('%s/compass' % PORT_NAME[port], Float32, queue_size=2)
+            }
+        elif device_type == DEV_SYSTEM and not (self.is_sensor_port(port) or self.is_motor_port(port)):
+            self.publishers[port] = {}
+        else:
+            self.publishers[port] = {}
 
-    #pub = rospy.Publisher('chatter', String, queue_size=10)
-    #r = rospy.Rate(10) # 10hz
-    #while not rospy.is_shutdown():
-        #str = NXJ_HOME+"hello world %s"%rospy.get_time()
-        #rospy.loginfo(str)
-        #pub.publish(str)
-        #r.sleep()
+    def system_set_poll_period(self, port, subport, period):
+        self.__send_cmd(self, DEV_SYSTEM, port, CMD_SYSTEM_SET_POLL_PERIOD, 'bi', subport, period)
+
+    def motor_rotate(self, port, direction):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_ROTATE, 'b', direction)
+
+    def motor_rotate_by(self, port, angle):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_ROTATE_BY, 'i', angle)
+
+    def motor_rotate_to(self, port, angle):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_ROTATE_TO, 'i', angle)
+
+    def motor_flt(self, port):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_FLT)
+
+    def motor_stop(self, port):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_STOP)
+
+    def motor_set_speed(self, port, speed):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_SET_SPEED, 'i', speed)
+
+    def motor_set_accel(self, port, accel):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_SET_ACCEL, 'i', accel)
+
+    def motor_set_stall_treshold(self, port, error, time):
+        self.__send_cmd(self, DEV_MOTOR, port, CMD_MOTOR_SET_STALL_TRESHOLD, 'ii', error, time)
+
+    def irlink_send_extended(self, port, channel, opA):
+        self.__send_cmd(self, DEV_IRLINK, port, CMD_IRLINK_SEND_EXTENDED, 'ii', channel, opA)
+
+    def irlink_send_single_cst(self, port, channel, opA, opB):
+        self.__send_cmd(self, DEV_IRLINK, port, CMD_IRLINK_SEND_SINGLE_CST, 'iii', channel, opA, opB)
+
+    def irlink_send_single_pwm(self, port, channel, opA, opB):
+        self.__send_cmd(self, DEV_IRLINK, port, CMD_IRLINK_SEND_SINGLE_PWM, 'iii', channel, opA, opB)
+
+    def irlink_send_combo_direct(self, port, channel, opA, opB):
+        self.__send_cmd(self, DEV_IRLINK, port, CMD_IRLINK_SEND_COMBO_DIRECT, 'iii', channel, opA, opB)
+
+    def irlink_send_combo_pwm(self, port, channel, opA, opB):
+        self.__send_cmd(self, DEV_IRLINK, port, CMD_IRLINK_SEND_COMBO_PWM, 'iii', channel, opA, opB)
 
 if __name__ == '__main__':
     try:
-        rosnxt_proxy()
+        p = rosnxt()
     except rospy.ROSInterruptException: pass
 
