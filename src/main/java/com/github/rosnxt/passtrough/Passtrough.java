@@ -36,6 +36,8 @@ import java.util.*;
 import lejos.pc.comm.*;
 
 public class Passtrough {
+	static boolean run;
+
 	public static void main(String args[]) throws IOException {
 		NXTComm comm;
 
@@ -80,12 +82,42 @@ public class Passtrough {
 		}
 		
 		System.out.println("Opened device " + brickName);
+		run = true;
 		
-		InputStream nxtIn = comm.getInputStream();
-		OutputStream nxtOut = comm.getOutputStream();
-		InputStream stdIn = System.in;
-		OutputStream stdOut = System.err;
+		final InputStream nxtIn = comm.getInputStream();
+		final OutputStream nxtOut = comm.getOutputStream();
+		final InputStream stdIn = System.in;
+		final OutputStream stdOut = System.err;
 
+		Thread in = new Thread() {
+			public void run() {
+				try {
+					while(run) {
+						int b = stdIn.read();
+						if(b == -1) return;
+						nxtOut.write(b);
+						nxtOut.flush();
+					}
+				} catch(IOException e) {
+					run = false;
+				}
+			}
+		};
+		Thread out = new Thread() {
+			public void run() {
+				try {
+					while(run) {
+						int b = nxtIn.read();
+						if(b == -1) return;
+						stdOut.write(b);
+						stdOut.flush();
+					}
+				} catch(IOException e) {
+					run = false;
+				}
+			}
+		};
+		/*
 		while(true) {
 			int inAvail = stdIn.available();
 			if(inAvail > 0) {
@@ -105,5 +137,12 @@ public class Passtrough {
 
 			Thread.yield();
 		}
+		*/
+		in.start();
+		out.start();
+		try {
+			in.join();
+			out.join();
+		} catch(InterruptedException e) {}
 	}
 }
